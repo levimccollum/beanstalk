@@ -1,0 +1,26 @@
+[build]
+  publish = "site"                # serve /site as the website root
+  functions = "netlify/functions" # serverless functions live here
+
+# Security headers for all routes
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "interest-cohort=()"
+
+# (Optional, harmless to keep) Caching/CORS for a future public seeds function
+[[headers]]
+  for = "/.netlify/functions/seeds"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+    Netlify-CDN-Cache-Control = "public, max-age=0, s-maxage=60, stale-while-revalidate=30"
+
+# NOTE:
+# - We'll add SPA fallbacks (e.g., /admin, /cloud/app) later when those UIs exist.
+# - Env vars (GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET, ORIGIN, GITHUB_SCOPES)
+#   will be set in Netlify before wiring OAuth.

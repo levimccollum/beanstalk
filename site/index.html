@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>beanstalk | infra for indies</title>
+  <meta name="description" content="Git-based admin + pods (HTML/CSS/JS only). Cloud optional, self-host friendly." />
+  <style>
+  :root{
+    --bg:#f7f9fc;              /* page background */
+    --fg:#0f172a;              /* primary text (slate-900) */
+    --muted:#475569;           /* secondary text (slate-600) */
+    --brand:#16a34a;           /* primary brand (green-600) */
+    --brand-ink:#ffffff;       /* on-brand text */
+    --card:rgba(255,255,255,.68); /* glass panel */
+    --border:rgba(15,23,42,.08);  /* subtle border */
+    --radius:16px; --gap:14px; --pad:18px 20px; --max:960px;
+  }
+  *{box-sizing:border-box}
+  html, body { height: 100%; }
+  body{
+    margin:0;color:var(--fg);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(22,163,74,.10), transparent 40%),
+      radial-gradient(900px 500px at 110% -10%, rgba(34,197,94,.08), transparent 35%),
+      var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header{max-width:var(--max);margin:0 auto;padding:20px;}
+  nav{display:flex;align-items:center;justify-content:space-between;gap:var(--gap)}
+  .logo{font-weight:800;letter-spacing:.2px}
+  .links a{color:var(--muted);text-decoration:none;margin-left:14px}
+  .links a:hover,.links a:focus-visible{color:var(--fg);outline:none}
+  .links a[aria-disabled="true"]{opacity:.7;cursor:not-allowed}
+
+  main{max-width:var(--max);margin:32px auto;padding:0 20px;flex:1 0 auto}
+  .glass{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    backdrop-filter:saturate(180%) blur(12px);
+    -webkit-backdrop-filter:saturate(180%) blur(12px); /* Safari */
+    box-shadow:0 8px 30px rgba(2,6,23,.06);
+  }
+  .hero{display:grid;gap:20px;padding:28px}
+  .hero h1{margin:0;font-size:clamp(28px,4vw,40px);line-height:1.15}
+  .muted{color:var(--muted)}
+
+  .row{display:flex;flex-wrap:wrap;gap:12px}
+  .btn{
+    display:inline-block;padding:var(--pad);border-radius:12px;text-decoration:none;
+    border:1px solid var(--border);background:#fff;color:var(--fg);font-weight:600
+  }
+  .btn.primary{background:var(--brand);border-color:transparent;color:var(--brand-ink)}
+  .btn:focus-visible{outline:3px solid color-mix(in oklab, var(--brand) 35%, white);outline-offset:2px}
+
+  .cards{margin-top:8px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .card{padding:16px}
+  footer{max-width:var(--max);margin:40px auto 24px;padding:0 20px;color:var(--muted);font-size:14px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+</style>
+</head>
+<body>
+  <a class="sr-only" href="#main">Skip to content</a>
+
+  <header>
+    <nav aria-label="Primary">
+      <div class="links">
+        <a href="mailto:hello@beanstalk.dev?subject=Beanstalk%20Waitlist">Join waitlist
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:6px;vertical-align:middle">
+            <path d="M5 12h14"/>
+            <path d="m12 5 7 7-7 7"/>
+          </svg>
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero glass" aria-labelledby="h1">
+      <h1 id="h1"><div class="logo"><span role="img" aria-label="Beanstalk sprout">🌱</span> beanstalk</h1>
+      <p class="muted">
+        infra for indies. minimal, git-based admin that edits your GitHub repo via proxy. built with only HTML/CSS/JS. cloud optional, self-hostable in one click.
+      </p>
+      <div class="row">
+        <a class="btn primary" href="https://app.netlify.com/start" target="_blank" rel="noopener">deploy to Netlify</a>
+        <a class="btn" href="#" aria-disabled="true">explore pods (soon)</a>
+      </div>
+
+      <div class="cards" aria-label="Highlights">
+        <div class="card"><strong>Git-first</strong><br><span class="muted">Content lives in your repo. Commit-to-main by default.</span></div>
+        <div class="card"><strong>No frameworks</strong><br><span class="muted">Just HTML, CSS, and vanilla JS. Easy to fork/host.</span></div>
+        <div class="card"><strong>Seeds</strong><br><span class="muted">Drop-in script widgets for status badges & more.</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>© <span id="y"></span> beanstalk | minimal, portable, durable, privacy-first</footer>
+
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
