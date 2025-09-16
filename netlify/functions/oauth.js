@@ -20,15 +20,22 @@ const ok = (body, headers = {}) => ({
   body: JSON.stringify(body),
 });
 
-const redirect = (location, setCookies = []) => ({
-  statusCode: 302,
-  headers: {
-    Location: location,
-    "Cache-Control": "no-store",
-    ...(setCookies.length ? { "Set-Cookie": setCookies } : {}),
-  },
-  body: "",
-});
+const redirect = (location, setCookies = []) => {
+  const res = {
+    statusCode: 302,
+    headers: {
+      Location: location,
+      "Cache-Control": "no-store",
+    },
+  };
+
+  if (Array.isArray(setCookies) && setCookies.length > 1) {
+    res.multiValueHeaders = { "Set-Cookie": setCookies };
+  } else if (Array.isArray(setCookies) && setCookies.length === 1) {
+    res.headers["Set-Cookie"] = setCookies[0];
+  }
+  return res;
+};
 
 function b64u(buf) {
   return Buffer.from(buf).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
