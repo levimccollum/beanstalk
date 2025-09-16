@@ -1,0 +1,123 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Beanstalk • Init Status Content</title>
+<style>
+  body { font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+  label { display:block; margin: 12px 0 4px; font-weight:600; }
+  input, textarea, button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
+  textarea { height: 180px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .muted { color:#666; font-size:12px; }
+  .ok { color: #0a7f16; }
+  .err { color: #b00020; }
+  .btn { cursor: pointer; margin-top: 12px; }
+  .help { background:#f8fff8; border:1px solid #cce9cf; padding:10px; border-radius: 10px; }
+</style>
+<h1>Initialize Status Content</h1>
+<p class="muted">Creates or updates <code>pods/status/content/status.json</code> in your repo using your current OAuth session.</p>
+
+<div class="row">
+  <div>
+    <label>Owner</label>
+    <input id="owner" placeholder="github username or org">
+  </div>
+  <div>
+    <label>Repo</label>
+    <input id="repo" placeholder="repository name">
+  </div>
+</div>
+
+<div class="row">
+  <div>
+    <label>Branch</label>
+    <input id="branch" value="main">
+  </div>
+  <div>
+    <label>Commit message</label>
+    <input id="message" value="beanstalk: init status.json">
+  </div>
+</div>
+
+<label>Path</label>
+<input id="path" value="pods/status/content/status.json">
+
+<label>JSON content</label>
+<textarea id="text">{ 
+  "status": "operational",
+  "updated": "<will be replaced with ISO time>",
+  "notes": []
+}</textarea>
+
+<button id="go" class="btn">Create / Update</button>
+<p id="out" class="muted"></p>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+function say(msg, cls="") { const o=$("out"); o.className=cls||"muted"; o.textContent=msg; }
+
+$("go").onclick = async () => {
+  const owner = $("owner").value.trim();
+  const repo = $("repo").value.trim();
+  const path = $("path").value.trim();
+  const branch = $("branch").value.trim() || "main";
+  const message = $("message").value.trim() || `beanstalk: update ${path}`;
+
+  if (!owner || !repo) { say("Owner and Repo are required.", "err"); return; }
+
+  // Fill updated timestamp if placeholder is present
+  let obj;
+  try {
+    obj = JSON.parse($("text").value);
+  } catch {
+    say("JSON content is invalid.", "err"); 
+    return;
+  }
+  obj.updated = new Date().toISOString();
+  const text = JSON.stringify(obj, null, 2);
+
+  say("Checking existing file…");
+  const base = location.origin + "/.netlify/functions/github";
+  const q = new URLSearchParams({ owner, repo, path, op: "contents", ref: branch });
+  const readUrl = `${base}?${q}`;
+
+  let sha = undefined;
+  try {
+    const r = await fetch(readUrl, { credentials: "same-origin" });
+    if (r.status === 200) {
+      const j = await r.json();
+      if (j.kind === "file" && j.sha) sha = j.sha;
+      say("Existing file found; will update.", "muted");
+    } else if (r.status === 404) {
+      say("No existing file; will create.", "muted");
+    } else {
+      const t = await r.text();
+      say("Unexpected read status " + r.status + ": " + t.slice(0,200), "err"); 
+      return;
+    }
+  } catch (e) { say("Read failed: " + e.message, "err"); return; }
+
+  say("Writing file…");
+  try {
+    const w = await fetch(base, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin", // send HttpOnly cookie
+      body: JSON.stringify({ owner, repo, path, text, message, branch, sha })
+    });
+    const j = await w.json().catch(()=> ({}));
+    if (!w.ok || !j.ok) {
+      say("Write failed: " + (j.error || w.status), "err");
+      console.log("write error", j);
+      return;
+    }
+    say(`OK — committed ${j.commit} on ${branch} at ${j.path}`, "ok");
+  } catch (e) {
+    say("Write exception: " + e.message, "err");
+  }
+};
+</script>
+
+<div class="help">
+  <strong>Heads-up:</strong> your OAuth token needs the <code>repo</code> scope for private repos.
+  If your POST fails with 404/422, re-auth at <code>/.netlify/functions/oauth/logout</code> then <code>/oauth/start</code>.
+</div>
