@@ -1,7 +1,7 @@
 {
   "auth": {
     "provider": "github",
-    "scopes": "public_repo read:user"
+    "scopes": "default"
   },
   "modes": {
     "cloud": { "oauth": "shared" },
