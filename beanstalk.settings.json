@@ -1,0 +1,6 @@
+{
+  "auth": {
+    "provider": "github",
+    "scopes": "public_repo read:user"
+  }
+}
