@@ -7,7 +7,7 @@ const crypto = require("crypto");
 
 const okCors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -47,7 +47,7 @@ exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: okCors, body: "" };
   }
-  if (event.httpMethod !== "GET") {
+  if (event.httpMethod !== "GET" && event.httpMethod !== "POST") {
     return { statusCode: 405, headers: okCors, body: "Method Not Allowed" };
   }
 
@@ -95,6 +95,74 @@ exports.handler = async (event) => {
         statusCode: 401,
         headers: { ...okCors, "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify({ ok: false, error: "session_expired" }),
+      };
+    }
+
+    // WRITE: commit-to-main via Contents API (POST)
+    if (event.httpMethod === "POST") {
+      let body = {};
+      try { body = JSON.parse(event.body || "{}"); } catch { body = {}; }
+      const owner = body.owner;
+      const repo = body.repo;
+      const reqPath = body.path;
+      const text = body.text; // plain text to commit
+      const message = body.message || `beanstalk: update ${reqPath}`;
+      const branch = body.branch || "main"; // commit-to-main by default
+      const sha = body.sha; // optional, required by GitHub when updating existing file
+
+      if (!owner || !repo || !reqPath || typeof text !== "string") {
+        return {
+          statusCode: 400,
+          headers: { ...okCors, "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ ok:false, error:"bad_request", need:["owner","repo","path","text"] }),
+        };
+      }
+
+      const encPath = reqPath.split("/").map(encodeURIComponent).join("/");
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encPath}`;
+      const payloadGit = {
+        message,
+        content: Buffer.from(text, "utf8").toString("base64"),
+        branch,
+        ...(sha ? { sha } : {}),
+      };
+
+      const gh = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "User-Agent": "beanstalk-proxy",
+          "Accept": "application/vnd.github+json",
+          "Authorization": `token ${payload.tok}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payloadGit),
+      });
+
+      if (!gh.ok) {
+        const textResp = await gh.text().catch(() => "");
+        return {
+          statusCode: gh.status,
+          headers: { ...okCors, "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ ok:false, error:"github_error", status: gh.status, body: textResp.slice(0, 800) }),
+        };
+      }
+
+      const resJson = await gh.json();
+      return {
+        statusCode: 200,
+        headers: { ...okCors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+        body: JSON.stringify({
+          ok: true,
+          proxy: "github",
+          kind: "write",
+          path: resJson.content?.path || reqPath,
+          branch,
+          commit: resJson.commit?.sha || null,
+          content: {
+            sha: resJson.content?.sha || null,
+            size: resJson.content?.size || null,
+          }
+        }),
       };
     }
 
