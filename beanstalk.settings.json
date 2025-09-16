@@ -2,5 +2,9 @@
   "auth": {
     "provider": "github",
     "scopes": "public_repo read:user"
+  },
+  "modes": {
+    "cloud": { "oauth": "shared" },
+    "self_host": { "oauth": "user_provided" }
   }
 }
