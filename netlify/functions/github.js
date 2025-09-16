@@ -1,6 +1,7 @@
-// GitHub proxy (read-only "whoami" test).
-// Decrypts HttpOnly `bs_sess`, validates expiry, then calls GitHub /user.
-// Returns minimal identity info. No secrets exposed to the client.
+// GitHub proxy: whoami + read-only Contents API
+// Decrypts HttpOnly `bs_sess`, validates expiry, then either:
+//  - op=whoami (default): GET /user
+//  - op=contents (or if owner/repo/path present): GET /repos/:owner/:repo/contents/:path[?ref=...]
 
 const crypto = require("crypto");
 
@@ -97,7 +98,94 @@ exports.handler = async (event) => {
       };
     }
 
-    // Call GitHub /user (read identity)
+    const qp = new URLSearchParams(event.rawQuery || event.rawQueryString || "");
+    const owner = qp.get("owner");
+    const repo = qp.get("repo");
+    const reqPath = qp.get("path"); // e.g., pods/status/content/status.json
+    const ref = qp.get("ref");      // optional branch name or sha
+    const op = qp.get("op") || (owner && repo && reqPath ? "contents" : "whoami");
+
+    if (op === "contents" && owner && repo && reqPath) {
+      // Build Contents API URL
+      const encPath = reqPath.split("/").map(encodeURIComponent).join("/");
+      const url = new URL(`https://api.github.com/repos/${owner}/${repo}/contents/${encPath}`);
+      if (ref) url.searchParams.set("ref", ref);
+
+      const gh = await fetch(url.toString(), {
+        headers: {
+          "User-Agent": "beanstalk-proxy",
+          "Accept": "application/vnd.github+json",
+          "Authorization": `token ${payload.tok}`,
+        },
+      });
+
+      if (gh.status === 404) {
+        return {
+          statusCode: 404,
+          headers: { ...okCors, "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ ok: false, error: "not_found", owner, repo, path: reqPath, ref: ref || null }),
+        };
+      }
+
+      if (!gh.ok) {
+        const text = await gh.text().catch(() => "");
+        return {
+          statusCode: 502,
+          headers: { ...okCors, "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ ok: false, error: "github_error", status: gh.status, body: text.slice(0, 500) }),
+        };
+      }
+
+      const data = await gh.json();
+
+      if (Array.isArray(data)) {
+        // Directory listing
+        return {
+          statusCode: 200,
+          headers: { ...okCors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+          body: JSON.stringify({
+            ok: true,
+            proxy: "github",
+            kind: "dir",
+            owner,
+            repo,
+            path: reqPath,
+            ref: ref || null,
+            items: data.map(it => ({ path: it.path, type: it.type, size: it.size, sha: it.sha, name: it.name }))
+          }),
+        };
+      }
+
+      // Single file
+      if (data.type === "file" && data.encoding === "base64" && typeof data.content === "string") {
+        const text = Buffer.from(data.content, "base64").toString("utf8");
+        return {
+          statusCode: 200,
+          headers: { ...okCors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+          body: JSON.stringify({
+            ok: true,
+            proxy: "github",
+            kind: "file",
+            owner,
+            repo,
+            path: data.path,
+            sha: data.sha,
+            size: data.size,
+            encoding: data.encoding,
+            text,
+          }),
+        };
+      }
+
+      // Fallback: unknown shape
+      return {
+        statusCode: 200,
+        headers: { ...okCors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+        body: JSON.stringify({ ok: true, proxy: "github", kind: data.type || "unknown", data }),
+      };
+    }
+
+    // Default: whoami
     const gh = await fetch("https://api.github.com/user", {
       headers: {
         "User-Agent": "beanstalk-proxy",
