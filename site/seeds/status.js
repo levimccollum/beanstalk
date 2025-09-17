@@ -24,6 +24,9 @@
   u.searchParams.set("repo", repo);
   if (path) u.searchParams.set("path", path);
   if (ref) u.searchParams.set("ref", ref);
+  if (s.dataset.dev === "1") {
+    u.searchParams.set("v", String(Date.now()));
+  }
 
   fetch(u.toString(), { mode: "cors" })
     .then(r => r.json())
@@ -33,10 +36,9 @@
 
       const wrap = el("div", { className: "bs-status" });
       const badge = el("span", { className: "bs-badge" });
-      badge.textContent = status === "operational" ? "● Operational" :
-                          status === "degraded"    ? "● Degraded" :
-                          status === "down"        ? "● Down" :
-                          "● Unknown";
+      const cls = status === "operational" ? "ok" : status === "degraded" ? "degraded" : status === "down" ? "down" : "unknown";
+      badge.className = `bs-badge ${cls}`;
+      badge.textContent = cls === "ok" ? "● Operational" : cls === "degraded" ? "● Degraded" : cls === "down" ? "● Down" : "● Unknown";
       wrap.appendChild(badge);
 
       const meta = el("div", { className: "bs-meta" });
@@ -49,9 +51,9 @@
         .bs-badge{font-weight:600}
         .bs-meta{color:#666;font-size:12px}
         .bs-badge::before{content:"";display:inline-block;width:.6em;height:.6em;border-radius:50%;margin-right:.35em;background:#999;vertical-align:middle}
-        .bs-badge:contains("Operational")::before{background:#119d59}
-        .bs-badge:contains("Degraded")::before{background:#b68b00}
-        .bs-badge:contains("Down")::before{background:#d14343}
+        .bs-badge.ok::before{background:#119d59}
+        .bs-badge.degraded::before{background:#b68b00}
+        .bs-badge.down::before{background:#d14343}
       `;
       mount.innerHTML = "";
       mount.appendChild(style);
