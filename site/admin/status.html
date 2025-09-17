@@ -71,6 +71,8 @@ function syncSave(){
   try { saveBtn.disabled = (jsonEl.value.trim() === (lastLoaded || "")); } catch { /* noop */ }
 }
 jsonEl.addEventListener("input", syncSave);
+// initialize state on load
+syncSave();
 
 async function githubRead(owner, repo, path, ref) {
   const params = new URLSearchParams({ owner, repo, path, op:"contents" });
@@ -193,6 +195,9 @@ $("save").onclick = async () => {
       obj.status = s;
       obj.updated = new Date().toISOString();
       textarea.value = JSON.stringify(obj, null, 2);
+      // fire input to update change detection
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      syncSave();
     } catch {
       console.warn("Invalid JSON in editor");
     }
