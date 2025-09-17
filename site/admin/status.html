@@ -41,6 +41,11 @@
 </div>
 
 <div class="actions">
+  <button id="q-op">Operational</button>
+  <button id="q-deg">Degraded</button>
+  <button id="q-down">Down</button>
+</div>
+<div class="actions">
   <button id="load">Load</button>
   <button id="save">Save</button>
 </div>
@@ -162,4 +167,22 @@ $("save").onclick = async () => {
   $("save").dataset.sha = res.content?.sha || "";
   say(`Saved commit ${res.commit} on ${branch}.`, "ok");
 };
+
+// Quick status buttons (keep inside the same <script> tag)
+(function(){
+  const textarea = document.getElementById("json");
+  function setStatus(s){
+    try {
+      const obj = JSON.parse(textarea.value);
+      obj.status = s;
+      obj.updated = new Date().toISOString();
+      textarea.value = JSON.stringify(obj, null, 2);
+    } catch {
+      console.warn("Invalid JSON in editor");
+    }
+  }
+  document.getElementById("q-op")?.addEventListener("click", () => setStatus("operational"));
+  document.getElementById("q-deg")?.addEventListener("click", () => setStatus("degraded"));
+  document.getElementById("q-down")?.addEventListener("click", () => setStatus("down"));
+})();
 </script>

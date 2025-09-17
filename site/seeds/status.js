@@ -38,7 +38,7 @@
       const badge = el("span", { className: "bs-badge" });
       const cls = status === "operational" ? "ok" : status === "degraded" ? "degraded" : status === "down" ? "down" : "unknown";
       badge.className = `bs-badge ${cls}`;
-      badge.textContent = cls === "ok" ? "● Operational" : cls === "degraded" ? "● Degraded" : cls === "down" ? "● Down" : "● Unknown";
+      badge.textContent = cls === "ok" ? "Operational" : cls === "degraded" ? "Degraded" : cls === "down" ? "Down" : "Unknown";
       wrap.appendChild(badge);
 
       const meta = el("div", { className: "bs-meta" });
