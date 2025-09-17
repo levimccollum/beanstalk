@@ -1,0 +1,174 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Beanstalk • Setup Wizard</title>
+<style>
+  :root { --fg:#0a0a0a; --muted:#666; --bd:#e5e7eb; --ok:#0a7f16; --err:#b00020; --accent:#119d59; --bg:#ffffff; }
+  *{ box-sizing: border-box }
+  body { font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg); background:var(--bg); margin:0; }
+  .wrap { max-width:960px; margin:40px auto; padding:0 16px; }
+  h1 { font-size:22px; margin:0 0 12px; }
+  p.muted { color:var(--muted); margin:8px 0 16px; }
+  .steps { display:flex; gap:8px; margin:16px 0 20px; flex-wrap:wrap; }
+  .step { padding:8px 12px; border:1px solid var(--bd); border-radius:999px; color:var(--muted); }
+  .step.active { border-color:var(--accent); color:#064b2e; background:rgba(17,157,89,.08); }
+  .card { border:1px solid var(--bd); border-radius:14px; padding:16px; background:rgba(255,255,255,.7); backdrop-filter:saturate(1.4) blur(4px); }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  label { display:block; font-weight:600; margin:12px 0 6px; }
+  input, button, textarea { width:100%; padding:10px; border-radius:10px; border:1px solid var(--bd); }
+  textarea { height:100px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .actions { display:flex; gap:12px; margin-top:16px; }
+  .btn { cursor:pointer }
+  .btn.primary { background:var(--accent); color:#fff; border:none; }
+  .list { margin:0; padding-left:18px; }
+  .kv { display:grid; grid-template-columns: 180px 1fr auto; gap:10px; align-items:center; border-bottom:1px dashed #eee; padding:8px 0; }
+  .kv:last-child { border-bottom:0 }
+  .tag { display:inline-block; padding:2px 8px; border-radius:999px; background:#f2f4f5; color:#333; font-size:12px; }
+  .help { background:#f8fff8; border:1px solid #cce9cf; padding:10px; border-radius:10px; margin-top:12px; }
+  .muted-sm { color:var(--muted); font-size:12px; }
+  .copy { cursor:pointer; border:1px dashed #cbd5e1; background:#f8fafc; }
+  .ok { color:var(--ok) } .err{ color:var(--err) }
+  .hide { display:none; }
+</style>
+
+<div class="wrap">
+  <h1>Setup Wizard</h1>
+  <p class="muted">We’ll check your environment, help you create a GitHub OAuth app, then verify login. No secrets are stored in the browser.</p>
+
+  <div class="steps">
+    <div class="step active" data-step="1">1) Environment</div>
+    <div class="step" data-step="2">2) GitHub OAuth</div>
+    <div class="step" data-step="3">3) Test & Finish</div>
+  </div>
+
+  <div id="step-1" class="card">
+    <h2>Environment</h2>
+    <p class="muted">Add the following variables in your Netlify site settings (<em>Site → Settings → Environment variables</em>), then redeploy.</p>
+
+    <div class="kv"><div>GITHUB_CLIENT_ID</div><div><input id="cid" placeholder="Paste from GitHub after you create the OAuth app"></div><div></div></div>
+    <div class="kv"><div>GITHUB_CLIENT_SECRET</div><div><input id="csec" placeholder="Paste from GitHub after you create the OAuth app"></div><div></div></div>
+    <div class="kv"><div>SESSION_SECRET</div><div><input id="ssec" placeholder="Use a long random string"></div><div><button class="copy" id="gen-session">Generate</button></div></div>
+    <div class="kv"><div>ORIGIN</div><div><input id="origin" value="" placeholder="https://your-site.netlify.app or custom domain"></div><div><button class="copy" id="use-origin">Use this site</button></div></div>
+    <div class="kv"><div>GITHUB_SCOPES</div><div><input id="scopes" value="repo read:user" placeholder="repo read:user"></div><div><span class="tag">recommended</span></div></div>
+
+    <div class="help">
+      <strong>Heads-up:</strong> You set these in Netlify, not here. This page helps you gather the values. After saving them in Netlify, <strong>trigger a redeploy</strong>.
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="to-2">Next: GitHub OAuth →</button>
+    </div>
+  </div>
+
+  <div id="step-2" class="card hide">
+    <h2>GitHub OAuth App</h2>
+    <p>Create a new OAuth App in GitHub (<em>Settings → Developer settings → OAuth Apps → New OAuth App</em>).</p>
+
+    <div class="row">
+      <div>
+        <label>Application name</label>
+        <input id="appname" value="Beanstalk (your site)">
+      </div>
+      <div>
+        <label>Homepage URL</label>
+        <input id="homeurl" value="">
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Authorization callback URL</label>
+        <input id="cburl" value="">
+      </div>
+      <div>
+        <label>Required scopes</label>
+        <input id="reqscopes" value="repo, read:user">
+      </div>
+    </div>
+
+    <p class="muted-sm">After creating, copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into Netlify env vars and redeploy.</p>
+
+    <div class="actions">
+      <button class="btn" id="back-1">← Back</button>
+      <button class="btn primary" id="to-3">Next: Test login →</button>
+    </div>
+  </div>
+
+  <div id="step-3" class="card hide">
+    <h2>Test & Finish</h2>
+    <ol class="list">
+      <li>Click <strong>Start login</strong> below and authorize with GitHub.</li>
+      <li>Return here—you should see your GitHub username.</li>
+      <li>Then head to the Status editor to set your first status.</li>
+    </ol>
+
+    <div class="actions">
+      <a class="btn" id="start-login" href="/.netlify/functions/oauth/start">Start login</a>
+      <button class="btn" id="check-login">I’m back — check login</button>
+      <a class="btn" href="/admin/status.html">Open Status editor</a>
+    </div>
+
+    <p id="login-out" class="muted"></p>
+
+    <div class="help">
+      <strong>Tip:</strong> If login fails, make sure your env vars are set in Netlify and you redeployed after setting them.
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="back-2">← Back</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const stepEls = [ $("step-1"), $("step-2"), $("step-3") ];
+  const pills = Array.from(document.querySelectorAll(".step"));
+
+  function show(n){
+    stepEls.forEach((el,i)=> el.classList.toggle("hide", i!==n-1));
+    pills.forEach(p => p.classList.toggle("active", Number(p.dataset.step)===n));
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  // prefill origin-derived fields
+  const origin = location.origin;
+  $("origin").value = origin;
+  $("homeurl").value = origin;
+  $("cburl").value = origin + "/.netlify/functions/oauth/callback";
+
+  // session secret helper
+  $("gen-session").onclick = () => {
+    const rnd = (len=48) => Array.from(crypto.getRandomValues(new Uint8Array(len))).map(b => b.toString(16).padStart(2,"0")).join("");
+    $("ssec").value = rnd(32);
+  };
+  $("use-origin").onclick = () => { $("origin").value = origin; };
+
+  // nav
+  $("to-2").onclick = () => show(2);
+  $("to-3").onclick = () => show(3);
+  $("back-1").onclick = () => show(1);
+  $("back-2").onclick = () => show(2);
+  pills.forEach(p => p.addEventListener("click", () => show(Number(p.dataset.step))));
+
+  // fake login check (skeleton only, non-blocking): tries /github whoami, shows basic message if accessible
+  $("check-login").onclick = async () => {
+    const out = $("login-out");
+    out.textContent = "Checking…";
+    try {
+      const r = await fetch("/.netlify/functions/github", { credentials: "same-origin" });
+      if (!r.ok) { out.innerHTML = "Not logged in yet. Click <em>Start login</em> above."; return; }
+      const j = await r.json();
+      if (j && j.user && j.user.login) {
+        out.innerHTML = `You are logged in as <strong>@${j.user.login}</strong>.`;
+      } else {
+        out.textContent = "Could not read your GitHub user — try logging in again.";
+      }
+    } catch {
+      out.textContent = "Could not reach the GitHub proxy — deploy may still be in progress.";
+    }
+  };
+
+  show(1);
+})();
+</script>
