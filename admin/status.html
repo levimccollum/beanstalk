@@ -1,0 +1,135 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Beanstalk • Status Editor</title>
+<style>
+  :root { --fg:#0a0a0a; --muted:#666; --bd:#e5e7eb; --ok:#0a7f16; --err:#b00020; }
+  body { font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; max-width:800px; margin:40px auto; padding:0 16px; color:var(--fg); }
+  h1 { font-size:20px; margin:0 0 16px; }
+  label { display:block; font-weight:600; margin:12px 0 6px; }
+  input, textarea, button { width:100%; padding:10px; border-radius:10px; border:1px solid var(--bd); }
+  textarea { height:280px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .actions { display:flex; gap:12px; margin-top:12px; }
+  .muted{ color:var(--muted); font-size:12px; }
+  .ok{ color:var(--ok); font-size:12px; }
+  .err{ color:var(--err); font-size:12px; }
+</style>
+
+<h1>Status Editor</h1>
+<p class="muted">Edits <code>pods/status/content/status.json</code> via the GitHub proxy. Requires you to be logged in (OAuth).</p>
+
+<div class="row">
+  <div>
+    <label for="owner">Owner</label>
+    <input id="owner" placeholder="github user/org">
+  </div>
+  <div>
+    <label for="repo">Repo</label>
+    <input id="repo" placeholder="repository">
+  </div>
+</div>
+
+<div class="row">
+  <div>
+    <label for="branch">Branch</label>
+    <input id="branch" value="main">
+  </div>
+  <div>
+    <label for="path">Path</label>
+    <input id="path" value="pods/status/content/status.json">
+  </div>
+</div>
+
+<div class="actions">
+  <button id="load">Load</button>
+  <button id="save">Save</button>
+</div>
+
+<label for="json">JSON</label>
+<textarea id="json" spellcheck="false">{ 
+  "status": "operational",
+  "updated": "<will be replaced on save>",
+  "notes": []
+}</textarea>
+
+<p id="out" class="muted"></p>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+function say(msg, cls="muted"){ const o=$("out"); o.className=cls; o.textContent=msg; }
+
+async function githubRead(owner, repo, path, ref) {
+  const params = new URLSearchParams({ owner, repo, path, op:"contents" });
+  if (ref) params.set("ref", ref);
+  const res = await fetch(`/.netlify/functions/github?${params}`, { credentials:"same-origin" });
+  if (res.status === 404) return { notFound:true };
+  const j = await res.json();
+  if (!res.ok || j.ok === false) throw new Error(j.error || ("read failed " + res.status));
+  return j;
+}
+
+async function githubWrite(body) {
+  const res = await fetch(`/.netlify/functions/github`, {
+    method: "POST",
+    headers: { "Content-Type":"application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  });
+  const j = await res.json().catch(()=> ({}));
+  if (!res.ok || j.ok === false) throw new Error(j.error || ("write failed " + res.status));
+  return j;
+}
+
+$("load").onclick = async () => {
+  const owner = $("owner").value.trim();
+  const repo = $("repo").value.trim();
+  const path = $("path").value.trim();
+  const ref = $("branch").value.trim();
+  if (!owner || !repo) { say("Owner and repo required.", "err"); return; }
+  say("Loading…");
+  try {
+    const j = await githubRead(owner, repo, path, ref);
+    if (j.notFound) {
+      say("No file yet; using defaults. Save to create.", "muted");
+      $("json").value = JSON.stringify({ status:"operational", updated:new Date().toISOString(), notes:[] }, null, 2);
+      $("save").dataset.sha = "";
+      return;
+    }
+    if (j.kind === "file") {
+      $("json").value = j.text;
+      $("save").dataset.sha = j.sha || "";
+      say("Loaded.", "ok");
+    } else {
+      say("Path is a directory; pick a file path.", "err");
+    }
+  } catch (e) {
+    say(e.message, "err");
+  }
+};
+
+$("save").onclick = async () => {
+  const owner = $("owner").value.trim();
+  const repo = $("repo").value.trim();
+  const path = $("path").value.trim();
+  const branch = $("branch").value.trim() || "main";
+  const prevSha = $("save").dataset.sha || "";
+
+  let obj;
+  try { obj = JSON.parse($("json").value); } catch { say("Invalid JSON.", "err"); return; }
+  obj.updated = new Date().toISOString();
+  const text = JSON.stringify(obj, null, 2);
+
+  say("Saving…");
+  try {
+    const j = await githubWrite({
+      owner, repo, path, text, branch,
+      message: `beanstalk: update ${path}`,
+      ...(prevSha ? { sha: prevSha } : {})
+    });
+    $("save").dataset.sha = j.content?.sha || "";
+    say(`Saved commit ${j.commit} on ${branch}.`, "ok");
+  } catch (e) {
+    say(e.message, "err");
+  }
+};
+</script>
