@@ -47,7 +47,7 @@
 </div>
 <div class="actions">
   <button id="load">Load</button>
-  <button id="save">Save</button>
+  <button id="save" disabled>Save</button>
 </div>
 
 <label for="json">JSON</label>
@@ -62,6 +62,15 @@
 <script>
 const $ = (id)=>document.getElementById(id);
 function say(msg, cls="muted"){ const o=$("out"); o.className=cls; o.textContent=msg; }
+
+// Change-detection state
+let lastLoaded = ""; // trimmed JSON that was last loaded/saved
+const jsonEl = $("json");
+const saveBtn = $("save");
+function syncSave(){
+  try { saveBtn.disabled = (jsonEl.value.trim() === (lastLoaded || "")); } catch { /* noop */ }
+}
+jsonEl.addEventListener("input", syncSave);
 
 async function githubRead(owner, repo, path, ref) {
   const params = new URLSearchParams({ owner, repo, path, op:"contents" });
@@ -100,11 +109,15 @@ $("load").onclick = async () => {
       say("No file yet; using defaults. Save to create.", "muted");
       $("json").value = JSON.stringify({ status:"operational", updated:new Date().toISOString(), notes:[] }, null, 2);
       $("save").dataset.sha = "";
+      lastLoaded = ""; // enable Save for new file
+      syncSave();
       return;
     }
     if (j.kind === "file") {
       $("json").value = j.text;
       $("save").dataset.sha = j.sha || "";
+      lastLoaded = $("json").value.trim();
+      syncSave();
       say("Loaded.", "ok");
     } else {
       say("Path is a directory; pick a file path.", "err");
@@ -165,7 +178,10 @@ $("save").onclick = async () => {
   }
 
   $("save").dataset.sha = res.content?.sha || "";
-  say(`Saved commit ${res.commit} on ${branch}.`, "ok");
+  lastLoaded = text.trim();
+  syncSave();
+  const t = new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+  say(`Saved commit ${res.commit} • ${t}`, "ok");
 };
 
 // Quick status buttons (keep inside the same <script> tag)
