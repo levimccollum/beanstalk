@@ -76,8 +76,10 @@ async function githubWrite(body) {
     body: JSON.stringify(body)
   });
   const j = await res.json().catch(()=> ({}));
-  if (!res.ok || j.ok === false) throw new Error(j.error || ("write failed " + res.status));
-  return j;
+  if (!res.ok || j.ok === false) {
+    return { ok:false, status: res.status, error: j.error || ("write failed " + res.status), raw:j };
+  }
+  return j; // { ok:true, commit, content:{sha,...}, ... }
 }
 
 $("load").onclick = async () => {
@@ -112,7 +114,17 @@ $("save").onclick = async () => {
   const repo = $("repo").value.trim();
   const path = $("path").value.trim();
   const branch = $("branch").value.trim() || "main";
-  const prevSha = $("save").dataset.sha || "";
+  if (!owner || !repo) { say("Owner and repo required.", "err"); return; }
+
+  let prevSha = $("save").dataset.sha || "";
+
+  // If user skipped Load, try to grab sha once
+  if (!prevSha) {
+    try {
+      const r = await githubRead(owner, repo, path, branch);
+      if (r && r.kind === "file" && r.sha) prevSha = r.sha;
+    } catch (_) {}
+  }
 
   let obj;
   try { obj = JSON.parse($("json").value); } catch { say("Invalid JSON.", "err"); return; }
@@ -120,16 +132,34 @@ $("save").onclick = async () => {
   const text = JSON.stringify(obj, null, 2);
 
   say("Saving…");
-  try {
-    const j = await githubWrite({
+
+  const attempt = async (shaMaybe) => {
+    const payload = {
       owner, repo, path, text, branch,
       message: `beanstalk: update ${path}`,
-      ...(prevSha ? { sha: prevSha } : {})
-    });
-    $("save").dataset.sha = j.content?.sha || "";
-    say(`Saved commit ${j.commit} on ${branch}.`, "ok");
-  } catch (e) {
-    say(e.message, "err");
+      ...(shaMaybe ? { sha: shaMaybe } : {})
+    };
+    return githubWrite(payload);
+  };
+
+  let res = await attempt(prevSha);
+  if (!res.ok && (res.status === 409 || res.status === 422)) {
+    try {
+      const latest = await githubRead(owner, repo, path, branch);
+      const latestSha = latest && latest.kind === "file" ? latest.sha : "";
+      res = await attempt(latestSha);
+    } catch (e) {
+      // fall through
+    }
   }
+
+  if (!res.ok) {
+    say(res.error || "write failed", "err");
+    console.log("write error", res);
+    return;
+  }
+
+  $("save").dataset.sha = res.content?.sha || "";
+  say(`Saved commit ${res.commit} on ${branch}.`, "ok");
 };
 </script>
