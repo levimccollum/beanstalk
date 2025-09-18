@@ -24,6 +24,9 @@ exports.handler = async (event) => {
   const missing = required.filter((k) => !process.env[k]);
   const ok = missing.length === 0;
 
+  const env = {};
+  required.forEach(k => { env[k] = Boolean(process.env[k]); });
+
   return {
     statusCode: 200,
     headers: {
@@ -33,6 +36,7 @@ exports.handler = async (event) => {
     body: JSON.stringify({
       ok,
       missing,
+      env,
       origin,
       callbackUrl,
       docs: {

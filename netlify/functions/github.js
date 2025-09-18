@@ -173,6 +173,50 @@ exports.handler = async (event) => {
     const ref = qp.get("ref");      // optional branch name or sha
     const op = qp.get("op") || (owner && repo && reqPath ? "contents" : "whoami");
 
+    // List repositories the signed-in user can access (uses session token)
+    if (op === "repos") {
+      // token presence already validated above, but keep a guard
+      if (!payload.tok) {
+        return {
+          statusCode: 401,
+          headers: { ...okCors, "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ ok: false, error: "unauthenticated" })
+        };
+      }
+
+      const gh = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
+        headers: {
+          "User-Agent": "beanstalk-proxy",
+          "Accept": "application/vnd.github+json",
+          "Authorization": `token ${payload.tok}`,
+        },
+      });
+
+      if (!gh.ok) {
+        const bodyTxt = await gh.text().catch(() => "");
+        return {
+          statusCode: 502,
+          headers: { ...okCors, "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ ok: false, error: "github_error", status: gh.status, body: bodyTxt.slice(0, 500) })
+        };
+      }
+
+      const data = await gh.json();
+      const repos = Array.isArray(data) ? data.map(r => ({
+        id: r.id,
+        name: r.name,
+        full_name: r.full_name,
+        private: !!r.private,
+        owner: r.owner && r.owner.login ? r.owner.login : null
+      })) : [];
+
+      return {
+        statusCode: 200,
+        headers: { ...okCors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+        body: JSON.stringify({ ok: true, proxy: "github", kind: "repos", repos })
+      };
+    }
+
     if (op === "contents" && owner && repo && reqPath) {
       // Build Contents API URL
       const encPath = reqPath.split("/").map(encodeURIComponent).join("/");

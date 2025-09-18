@@ -53,6 +53,7 @@
     <div class="help">
       <strong>Heads-up:</strong> You set these in Netlify, not here. This page helps you gather the values. After saving them in Netlify, <strong>trigger a redeploy</strong>.
     </div>
+    <p id="env-out" class="muted-sm">Checking environment…</p>
 
     <div class="actions">
       <button class="btn" id="to-2">Next: GitHub OAuth →</button>
@@ -150,6 +151,24 @@
   $("back-1").onclick = () => show(1);
   $("back-2").onclick = () => show(2);
   pills.forEach(p => p.addEventListener("click", () => show(Number(p.dataset.step))));
+
+  // live env check for Step 1
+  (async () => {
+    const out = document.getElementById("env-out");
+    if (!out) return;
+    out.textContent = "Checking…";
+    try {
+      const r = await fetch("/.netlify/functions/envcheck");
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ok === false) { out.textContent = "Env check failed."; return; }
+      const keys = j.env ? Object.keys(j.env) : [];
+      if (!keys.length) { out.textContent = "No env info returned."; return; }
+      const lines = keys.map(k => `${j.env[k] ? "✅" : "❌"} ${k}`);
+      out.textContent = lines.join("  •  ");
+    } catch (e) {
+      out.textContent = "Could not reach envcheck (deploy may still be in progress).";
+    }
+  })();
 
   // fake login check (skeleton only, non-blocking): tries /github whoami, shows basic message if accessible
   $("check-login").onclick = async () => {
